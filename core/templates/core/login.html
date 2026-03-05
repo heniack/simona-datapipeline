@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Simona DataPipeline</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root { --primary-blue: #2563eb; --light-blue: #3b82f6; }
+        body { background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login-container { background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); overflow: hidden; max-width: 450px; width: 100%; }
+        .login-header { background: linear-gradient(135deg, var(--primary-blue) 0%, var(--light-blue) 100%); padding: 3rem 2rem; text-align: center; color: white; }
+        .logo-space { width: 80px; height: 80px; background: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .logo-space i { font-size: 45px; color: var(--primary-blue); }
+        .login-header h2 { font-weight: 700; margin-bottom: 0.5rem; }
+        .login-body { padding: 2.5rem; }
+        .form-label { color: #334155; font-weight: 600; }
+        .form-control { border: 2px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem; }
+        .form-control:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.1); }
+        .btn-custom-primary { background: linear-gradient(90deg, var(--primary-blue) 0%, var(--light-blue) 100%); border: none; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 600; }
+        .btn-custom-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3); }
+        .input-group-text { background: #f8fafc; border: 2px solid #e2e8f0; border-right: none; border-radius: 10px 0 0 10px; }
+        .input-group .form-control { border-left: none; border-radius: 0 10px 10px 0; }
+        .input-group:focus-within .input-group-text { border-color: var(--primary-blue); }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="logo-space"><i class="bi bi-cloud-arrow-up-fill"></i></div>
+            <h2>Simona DataPipeline</h2>
+            <p>Sistema de Sincronización de Datos</p>
+        </div>
+        <div class="login-body">
+            <h4 class="text-center mb-4" style="color: var(--primary-blue); font-weight: 700;">Iniciar Sesión</h4>
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label"><i class="bi bi-person-circle me-2"></i>Usuario</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person" style="color: var(--primary-blue);"></i></span>
+                        <input type="text" class="form-control" name="username" placeholder="Ingresa tu usuario" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label"><i class="bi bi-shield-lock me-2"></i>Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock" style="color: var(--primary-blue);"></i></span>
+                        <input type="password" class="form-control" name="password" placeholder="Ingresa tu contraseña" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-custom-primary w-100"><i class="bi bi-box-arrow-in-right me-2"></i>Ingresar</button>
+            </form>
+            <div class="text-center mt-4" style="color: #64748b;">
+                <p>¿No tienes cuenta? <a href="{% url 'signup' %}" style="color: var(--primary-blue); text-decoration: none; font-weight: 600;">Regístrate aquí</a></p>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
