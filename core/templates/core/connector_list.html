@@ -23,10 +23,10 @@
             padding: 1rem 0;
         }
         .logo-space {
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             background: white;
-            border-radius: 10px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -158,7 +158,7 @@
         <div class="container-fluid px-4">
             <a class="navbar-brand" href="{% url 'home' %}">
                 <div class="logo-space">
-                    <i class="bi bi-cloud-arrow-up-fill"></i>
+                    <img src="{% static 'core/images/logo_simona.jpg' %}" alt="Simona Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;">
                 </div>
                 Simona DataPipeline
             </a>
@@ -200,7 +200,7 @@
             </div>
             <div>
                 <a href="{% url 'authorize_google_drive' %}" class="btn me-2" style="background: #10b981; color: white; border-radius: 10px; font-weight: 600;">
-                    <i class="bi bi-google me-2"></i>Google Drive
+                    <i class="bi bi-google me-2"></i>Configurar Google Drive
                 </a>
                 <a href="{% url 'create_connector' %}" class="btn btn-custom-primary">
                     <i class="bi bi-plus-circle me-2"></i>Nuevo Conector
@@ -209,21 +209,87 @@
         </div>
 
         {% if connectors %}
-            <div class="row g-4 pb-4">
-                {% for connector in connectors %}
+            <!-- Sección Google Drive -->
+            {% with google_connectors=connectors|dictsort:"destination_type" %}
+            {% if google_connectors %}
+                <div class="mb-5">
+                    <h3 class="mb-4" style="color: var(--primary-blue); display: flex; align-items: center;">
+                        <i class="bi bi-google me-3" style="font-size: 32px; color: #10b981;"></i>
+                        Conectores de Google Drive
+                    </h3>
+                    <div class="row g-4">
+                        {% for connector in connectors %}
+                        {% if connector.destination_type == 'google_drive' %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="connector-card">
+                                <div class="connector-header">
+                                    <div class="connector-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                        <i class="bi bi-google"></i>
+                                    </div>
+                                    <h5>{{ connector.name }}</h5>
+                                </div>
+                                
+                                <div class="connector-info">
+                                    <p><strong><i class="bi bi-server me-2"></i>Host:</strong> {{ connector.pg_host }}</p>
+                                    <p><strong><i class="bi bi-database me-2"></i>Base de datos:</strong> {{ connector.pg_database }}</p>
+                                    <p><strong><i class="bi bi-person me-2"></i>Usuario:</strong> {{ connector.pg_user }}</p>
+                                    <p><strong><i class="bi bi-clock me-2"></i>Frecuencia:</strong> {{ connector.get_sync_frequency_display }}</p>
+                                    <p>
+                                        <strong><i class="bi bi-power me-2"></i>Estado:</strong>
+                                        {% if connector.is_active %}
+                                            <span class="badge" style="background: #10b981;">Activo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                
+                                <div class="d-flex flex-column gap-2">
+                                    <a href="{% url 'sync_task_list' connector.id %}" class="btn btn-custom-sm" style="background: #0ea5e9; color: white; border-radius: 8px; font-weight: 600;">
+                                        <i class="bi bi-list-ul me-1"></i>Ver Sincronizaciones
+                                    </a>
+                                    <a href="{% url 'edit_connector' connector.id %}" class="btn btn-custom-sm" style="background: #f59e0b; color: white; border-radius: 8px; font-weight: 600;">
+                                        <i class="bi bi-pencil-square me-1"></i>Editar Conector
+                                    </a>
+                                    <form method="post" action="{% url 'sync_connector_now' connector.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-custom-sm w-100" style="background: #10b981; color: white; border-radius: 8px; font-weight: 600;">
+                                            <i class="bi bi-arrow-repeat me-1"></i>Sincronizar Ahora
+                                        </button>
+                                    </form>
+                                </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <!-- Sección Amazon S3 -->
+            <div class="mb-5">
+                <h3 class="mb-4" style="color: var(--primary-blue); display: flex; align-items: center;">
+                    <i class="bi bi-cloud-upload me-3" style="font-size: 32px; color: #f59e0b;"></i>
+                    Conectores de Amazon S3
+                </h3>
+                <div class="row g-4">
+                    {% for connector in connectors %}
+                    {% if connector.destination_type == 's3' %}
                     <div class="col-md-6 col-lg-4">
                         <div class="connector-card">
                             <div class="connector-header">
-                                <div class="connector-icon">
-                                    <i class="bi bi-database-fill-gear"></i>
+                                <div class="connector-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                                    <i class="bi bi-cloud-upload"></i>
                                 </div>
                                 <h5>{{ connector.name }}</h5>
                             </div>
                             
                             <div class="connector-info">
-                                <p><strong><i class="bi bi-server me-2"></i>Host:</strong> {{ connector.db_host }}</p>
-                                <p><strong><i class="bi bi-database me-2"></i>Base de datos:</strong> {{ connector.db_name }}</p>
-                                <p><strong><i class="bi bi-person me-2"></i>Usuario:</strong> {{ connector.db_user }}</p>
+                                <p><strong><i class="bi bi-server me-2"></i>Host:</strong> {{ connector.pg_host }}</p>
+                                <p><strong><i class="bi bi-database me-2"></i>Base de datos:</strong> {{ connector.pg_database }}</p>
+                                <p><strong><i class="bi bi-person me-2"></i>Usuario:</strong> {{ connector.pg_user }}</p>
+                                <p><strong><i class="bi bi-bucket me-2"></i>Bucket:</strong> {{ connector.s3_bucket_name }}</p>
                                 <p><strong><i class="bi bi-clock me-2"></i>Frecuencia:</strong> {{ connector.get_sync_frequency_display }}</p>
                                 <p>
                                     <strong><i class="bi bi-power me-2"></i>Estado:</strong>
@@ -244,14 +310,16 @@
                                 </a>
                                 <form method="post" action="{% url 'sync_connector_now' connector.id %}">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-custom-sm w-100" style="background: #10b981; color: white; border-radius: 8px; font-weight: 600;">
+                                    <button type="submit" class="btn btn-custom-sm w-100" style="background: #f59e0b; color: white; border-radius: 8px; font-weight: 600;">
                                         <i class="bi bi-arrow-repeat me-1"></i>Sincronizar Ahora
                                     </button>
                                 </form>
                             </div>
                         </div>
                     </div>
-                {% endfor %}
+                    {% endif %}
+                    {% endfor %}
+                </div>
             </div>
         {% else %}
             <div class="empty-state">

@@ -11,7 +11,7 @@
         :root { --primary-blue: #2563eb; --light-blue: #3b82f6; }
         body { background: linear-gradient(135deg, #e0f2fe 0%, #ffffff 100%); min-height: 100vh; }
         .navbar-custom { background: linear-gradient(90deg, var(--primary-blue) 0%, var(--light-blue) 100%) !important; box-shadow: 0 2px 10px rgba(37, 99, 235, 0.2); padding: 1rem 0; }
-        .logo-space { width: 50px; height: 50px; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .logo-space { width: 60px; height: 60px; background: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .logo-space i { font-size: 28px; color: var(--primary-blue); }
         .navbar-brand { font-size: 1.5rem; font-weight: 700; color: white !important; display: flex; align-items: center; }
         .user-badge { background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 20px; color: white; }
@@ -28,7 +28,7 @@
     <nav class="navbar navbar-expand-lg navbar-custom">
         <div class="container-fluid px-4">
             <a class="navbar-brand" href="{% url 'home' %}">
-                <div class="logo-space"><i class="bi bi-cloud-arrow-up-fill"></i></div>
+                <div class="logo-space"><img src="{% static 'core/images/logo_simona.jpg' %}" alt="Simona Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;"></div>
                 Simona DataPipeline
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border-color: white;">

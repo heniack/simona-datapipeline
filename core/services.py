@@ -58,19 +58,38 @@ class PostgreSQLSync:
     def extract_data(self, sync_task):
         """Extrae datos incrementales de la tabla"""
         from django.utils import timezone as django_timezone
+        import json
+        
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
-            # Construir query incremental
-            if sync_task.last_sync_time:
-                # Convertir a naive datetime (sin timezone) para PostgreSQL
+            # PRIMERO: Obtener el schema actual de la tabla
+            cursor.execute(f"SELECT * FROM {sync_task.table_name} LIMIT 0")
+            current_columns = [desc[0] for desc in cursor.description]
+            
+            # SEGUNDO: Comparar con el schema anterior ANTES de hacer el query
+            schema_changed = False
+            force_full_sync = False
+            
+            if sync_task.last_schema:
+                previous_columns = json.loads(sync_task.last_schema)
+                if current_columns != previous_columns:
+                    schema_changed = True
+                    force_full_sync = True
+                    print(f"🔄 SCHEMA CAMBIÓ:")
+                    print(f"   Anterior: {previous_columns}")
+                    print(f"   Actual: {current_columns}")
+                    print(f"   → Forzando FULL SYNC para que todos los registros tengan las nuevas columnas")
+            
+            # TERCERO: Construir query según corresponda
+            if sync_task.last_sync_time and not force_full_sync:
+                # Sync incremental normal
                 last_sync_naive = sync_task.last_sync_time
                 if django_timezone.is_aware(last_sync_naive):
                     last_sync_naive = django_timezone.make_naive(last_sync_naive, timezone=django_timezone.get_current_timezone())
                 
-                print(f"DEBUG: Sincronización incremental. Last sync (aware): {sync_task.last_sync_time}")
-                print(f"DEBUG: Last sync (naive para query): {last_sync_naive}")
+                print(f"DEBUG: Sincronización incremental. Last sync: {last_sync_naive}")
                 
                 query = f"""
                     SELECT * FROM {sync_task.table_name}
@@ -79,8 +98,11 @@ class PostgreSQLSync:
                 """
                 cursor.execute(query, (last_sync_naive,))
             else:
-                print(f"DEBUG: Primera sincronización - trayendo todos los datos")
-                # Primera sincronización: traer todo
+                if force_full_sync:
+                    print(f"DEBUG: FULL SYNC por cambio de schema")
+                else:
+                    print(f"DEBUG: Primera sincronización - trayendo todos los datos")
+                # Full sync
                 query = f"SELECT * FROM {sync_task.table_name}"
                 cursor.execute(query)
             
@@ -103,7 +125,7 @@ class PostgreSQLSync:
                 
                 print(f"DEBUG: Max timestamp extraído: {max_timestamp}")
             
-            return columns, rows, max_timestamp
+            return columns, rows, max_timestamp, schema_changed
             
         finally:
             cursor.close()
@@ -145,9 +167,10 @@ class GoogleDriveUploader:
         
     
     def get_credentials(self):
-        """Obtiene las credenciales OAuth del usuario"""
+        """Obtiene las credenciales OAuth del usuario y las refresca si están expiradas"""
         from .models import GoogleDriveToken
         from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
         
         token_obj = GoogleDriveToken.objects.get(user=self.user)
         
@@ -159,6 +182,16 @@ class GoogleDriveUploader:
             client_secret=token_obj.client_secret,
             scopes=token_obj.scopes.split(',') if token_obj.scopes else []
         )
+        
+        # Si el token está expirado, refrescarlo automáticamente
+        if credentials.expired and credentials.refresh_token:
+            print("DEBUG: Token expirado, refrescando...")
+            credentials.refresh(Request())
+            
+            # Guardar el token actualizado
+            token_obj.token = credentials.token
+            token_obj.save()
+            print("DEBUG: Token refrescado y guardado")
         
         return credentials
     
@@ -186,11 +219,12 @@ class GoogleDriveUploader:
         folder = service.files().create(body=file_metadata, fields='id').execute()
         return folder.get('id')
     
-    def upload_csv(self, csv_content, database_name, table_name):
-        """Sube o actualiza archivo CSV en Google Drive (append-only)"""
+    def upload_csv(self, csv_content, database_name, table_name, schema_changed=False):
+        """Sube o actualiza archivo CSV en Google Drive"""
         from googleapiclient.discovery import build
         from googleapiclient.http import MediaIoBaseUpload
         import io
+        import csv
         
         # Obtener credenciales
         credentials = self.get_credentials()
@@ -211,8 +245,43 @@ class GoogleDriveUploader:
         results = service.files().list(q=query, fields='files(id, name)').execute()
         files = results.get('files', [])
         
-        if files:
-            # Archivo existe: descargar contenido existente
+        if files and schema_changed:
+            # SCHEMA CAMBIÓ: Renombrar archivo viejo y crear uno nuevo con todos los datos
+            file_id = files[0]['id']
+            
+            from datetime import datetime
+            timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+            old_filename = f"{table_name}_old_{timestamp_str}.csv"
+            
+            # Renombrar archivo existente
+            service.files().update(
+                fileId=file_id,
+                body={'name': old_filename},
+                fields='id, name'
+            ).execute()
+            print(f"📦 Archivo renombrado a: {old_filename} (schema viejo preservado)")
+            
+            # Crear archivo nuevo con todos los datos y schema actualizado
+            file_metadata = {
+                'name': filename,
+                'parents': [table_folder_id]
+            }
+            
+            media = MediaIoBaseUpload(
+                io.BytesIO(csv_content.encode('utf-8')),
+                mimetype='text/csv',
+                resumable=True
+            )
+            
+            file = service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id, name, webViewLink'
+            ).execute()
+            print(f"✨ Archivo nuevo creado con schema actualizado: {filename}")
+            
+        elif files:
+            # Archivo existe y schema NO cambió: hacer append
             file_id = files[0]['id']
             request = service.files().get_media(fileId=file_id)
             
@@ -239,7 +308,7 @@ class GoogleDriveUploader:
             else:
                 combined_content = existing_content
             
-            # Actualizar archivo existente
+            # Actualizar archivo existente (append)
             media = MediaIoBaseUpload(
                 io.BytesIO(combined_content.encode('utf-8')),
                 mimetype='text/csv',
@@ -251,6 +320,7 @@ class GoogleDriveUploader:
                 media_body=media,
                 fields='id, name, webViewLink'
             ).execute()
+            print("📝 Archivo actualizado (append)")
             
         else:
             # Archivo no existe: crear nuevo
@@ -270,8 +340,109 @@ class GoogleDriveUploader:
                 media_body=media,
                 fields='id, name, webViewLink'
             ).execute()
+            print("📄 Archivo nuevo creado")
         
         return file
+
+
+class S3Uploader:
+    """Maneja la subida de archivos CSV a Amazon S3"""
+    
+    def __init__(self, connector):
+        self.connector = connector
+    
+    def get_s3_client(self):
+        """Crea cliente S3 con las credenciales del connector"""
+        import boto3
+        
+        return boto3.client(
+            's3',
+            aws_access_key_id=self.connector.s3_access_key,
+            aws_secret_access_key=self.connector.s3_secret_key,
+            region_name=self.connector.s3_region
+        )
+    
+    def upload_csv(self, csv_content, database_name, table_name, schema_changed=False):
+        """Sube o actualiza archivo CSV en S3 con estructura carpetas/nombre_db/nombre_tabla/archivo.csv"""
+        import io
+        from datetime import datetime
+        
+        s3_client = self.get_s3_client()
+        bucket_name = self.connector.s3_bucket_name
+        
+        # Estructura de carpetas: nombre_bd/nombre_tabla/tabla.csv
+        filename = f"{table_name}.csv"
+        s3_key = f"{database_name}/{table_name}/{filename}"
+        
+        # Verificar si existe el archivo
+        try:
+            response = s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+            file_exists = True
+        except:
+            file_exists = False
+        
+        if file_exists and schema_changed:
+            # SCHEMA CAMBIÓ: Renombrar archivo viejo y crear uno nuevo
+            timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+            old_filename = f"{table_name}_old_{timestamp_str}.csv"
+            old_s3_key = f"{database_name}/{table_name}/{old_filename}"
+            
+            # Copiar archivo actual a nombre old
+            s3_client.copy_object(
+                Bucket=bucket_name,
+                CopySource={'Bucket': bucket_name, 'Key': s3_key},
+                Key=old_s3_key
+            )
+            print(f"📦 Archivo S3 renombrado a: {old_filename} (schema viejo preservado)")
+            
+            # Subir archivo nuevo con todos los datos y schema actualizado
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=s3_key,
+                Body=csv_content.encode('utf-8'),
+                ContentType='text/csv'
+            )
+            print(f"✨ Archivo S3 nuevo creado con schema actualizado: {filename}")
+            
+        elif file_exists:
+            # Archivo existe y schema NO cambió: hacer append
+            # Descargar contenido actual
+            response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+            existing_content = response['Body'].read().decode('utf-8')
+            
+            # Separar el nuevo contenido (sin header)
+            new_rows = '\n'.join(csv_content.split('\n')[1:])  # Skip header
+            
+            # Combinar contenido
+            combined_content = existing_content.rstrip('\n') + '\n' + new_rows
+            
+            # Subir contenido combinado
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=s3_key,
+                Body=combined_content.encode('utf-8'),
+                ContentType='text/csv'
+            )
+            print("📝 Archivo S3 actualizado (append)")
+            
+        else:
+            # Archivo no existe: crear nuevo
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=s3_key,
+                Body=csv_content.encode('utf-8'),
+                ContentType='text/csv'
+            )
+            print("📄 Archivo S3 nuevo creado")
+        
+        # Generar URL del archivo (pre-signed URL válida por 1 hora)
+        file_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket_name, 'Key': s3_key},
+            ExpiresIn=3600
+        )
+        
+        return {'webViewLink': file_url, 's3_key': s3_key}
 
 
 class SyncOrchestrator:
@@ -285,6 +456,7 @@ class SyncOrchestrator:
         """Ejecuta la sincronización completa"""
         from .models import SyncTask
         from django.utils import timezone as django_timezone
+        import json
         
         try:
             # Actualizar estado a running
@@ -293,7 +465,7 @@ class SyncOrchestrator:
             
             # 1. Extraer datos de PostgreSQL
             pg_sync = PostgreSQLSync(self.connector)
-            columns, rows, max_timestamp = pg_sync.extract_data(self.sync_task)
+            columns, rows, max_timestamp, schema_changed = pg_sync.extract_data(self.sync_task)
             
             if not rows:
                 self.sync_task.status = 'success'
@@ -311,12 +483,21 @@ class SyncOrchestrator:
                 result = uploader.upload_csv(
                     csv_content,
                     self.connector.pg_database,
-                    self.sync_task.table_name
+                    self.sync_task.table_name,
+                    schema_changed=schema_changed
                 )
                 file_url = result.get('webViewLink', '')
             elif self.connector.destination_type == 's3':
-                # TODO: Implementar S3
-                raise NotImplementedError('S3 upload aún no implementado')
+                uploader = S3Uploader(self.connector)
+                result = uploader.upload_csv(
+                    csv_content,
+                    self.connector.pg_database,
+                    self.sync_task.table_name,
+                    schema_changed=schema_changed
+                )
+                file_url = result.get('webViewLink', '')
+            else:
+                raise ValueError(f"Tipo de destino no soportado: {self.connector.destination_type}")
             
             # 4. Asegurar que max_timestamp sea timezone-aware antes de guardar
             if max_timestamp and not django_timezone.is_aware(max_timestamp):
@@ -329,10 +510,11 @@ class SyncOrchestrator:
             
             print(f"DEBUG: Guardando last_sync_time como: {max_timestamp}")
             
-            # 5. Actualizar SyncTask
+            # 5. Actualizar SyncTask (incluir schema actual)
             self.sync_task.status = 'success'
             self.sync_task.records_synced = len(rows)
             self.sync_task.last_sync_time = max_timestamp
+            self.sync_task.last_schema = json.dumps(columns)  # Guardar schema actual
             self.sync_task.error_message = None
             self.sync_task.save()
             

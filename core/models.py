@@ -76,6 +76,7 @@ class SyncTask(models.Model):
     table_name = models.CharField(max_length=100)
     timestamp_column = models.CharField(max_length=100, default='updated_at')
     last_sync_time = models.DateTimeField(null=True, blank=True)
+    last_schema = models.TextField(null=True, blank=True, help_text='Lista de columnas de la última sincronización (JSON)')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     records_synced = models.IntegerField(default=0)
     error_message = models.TextField(blank=True, null=True)

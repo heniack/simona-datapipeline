@@ -83,45 +83,62 @@ def execute_sync_for_connector(connector_id):
         logger.error(f"Error en sincronización automática del conector {connector_id}: {str(e)}")
 
 
-def check_and_schedule_connectors():
+def schedule_connector(connector):
     """
-    Revisa todos los conectores activos y programa sus sincronizaciones
-    según la frecuencia configurada.
+    Programa la sincronización de un conector específico según su frecuencia.
+    """
+    job_id = f"sync_connector_{connector.id}"
+    
+    try:
+        # Remover job existente si hay
+        if scheduler.get_job(job_id):
+            scheduler.remove_job(job_id)
+            logger.info(f"Job existente removido para: {connector.name}")
+        
+        # Programar nuevo job
+        scheduler.add_job(
+            execute_sync_for_connector,
+            'interval',
+            minutes=connector.sync_frequency,
+            id=job_id,
+            args=[connector.id],
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+            name=f"Sync: {connector.name}"
+        )
+        
+        logger.info(f"✓ Programado '{connector.name}' cada {connector.sync_frequency} minutos")
+        print(f"✓ Programado '{connector.name}' cada {connector.sync_frequency} minutos")
+        
+    except Exception as e:
+        logger.error(f"Error programando {connector.name}: {str(e)}")
+        print(f"✗ Error programando {connector.name}: {str(e)}")
+
+
+def schedule_all_connectors():
+    """
+    Programa todos los conectores activos.
     """
     from .models import Connector
     
     try:
         connectors = Connector.objects.filter(is_active=True)
         
+        if not connectors.exists():
+            print("⚠ No hay conectores activos para programar")
+            return
+        
+        print(f"📋 Programando {connectors.count()} conector(es)...")
+        
         for connector in connectors:
-            job_id = f"sync_connector_{connector.id}"
+            schedule_connector(connector)
             
-            # Verificar si ya existe un job para este conector
-            existing_job = scheduler.get_job(job_id)
-            
-            if existing_job:
-                # Si existe, verificar si la frecuencia cambió
-                # Si cambió, eliminar el job antiguo y crear uno nuevo
-                scheduler.remove_job(job_id)
-                logger.info(f"Job existente removido para conector: {connector.name}")
-            
-            # Programar nuevo job con la frecuencia del conector
-            scheduler.add_job(
-                execute_sync_for_connector,
-                'interval',
-                minutes=connector.sync_frequency,
-                id=job_id,
-                args=[connector.id],
-                replace_existing=True,
-                max_instances=1,  # Solo una instancia a la vez
-                coalesce=True,  # Si se acumulan ejecuciones, solo ejecutar una vez
-                name=f"Sync: {connector.name}"
-            )
-            
-            logger.info(f"✓ Programada sincronización para '{connector.name}' cada {connector.sync_frequency} minutos")
+        print(f"✅ {connectors.count()} conector(es) programados exitosamente")
             
     except Exception as e:
         logger.error(f"Error al programar conectores: {str(e)}")
+        print(f"✗ Error: {str(e)}")
 
 
 def start_scheduler():
@@ -142,16 +159,6 @@ def start_scheduler():
     # Crear scheduler con BackgroundScheduler (no bloquea el proceso principal)
     scheduler = BackgroundScheduler(timezone='America/Argentina/Buenos_Aires')
     
-    # Agregar el job que revisa y programa los conectores cada 5 minutos
-    scheduler.add_job(
-        check_and_schedule_connectors,
-        'interval',
-        minutes=5,
-        id='check_connectors',
-        replace_existing=True,
-        name='Revisar y programar conectores'
-    )
-    
     # Iniciar scheduler
     scheduler.start()
     
@@ -162,13 +169,10 @@ def start_scheduler():
     try:
         from django.db import connection
         connection.ensure_connection()
-        check_and_schedule_connectors()
-        print("✓ Conectores programados")
+        schedule_all_connectors()
     except Exception as e:
         print(f"⚠ Error al programar conectores iniciales: {e}")
-        print("   (Se intentará nuevamente en 5 minutos)")
     
-    print("⏰ Próxima revisión de conectores en 5 minutos")
     print("=" * 60)
     
     logger.info("✓ Scheduler iniciado correctamente")
