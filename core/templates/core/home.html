@@ -157,6 +157,9 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-custom">
         <div class="container-fluid px-4">
+            <button class="btn btn-light me-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" style="border-radius: 10px;">
+                <i class="bi bi-list" style="font-size: 24px;"></i>
+            </button>
             <a class="navbar-brand" href="{% url 'home' %}">
                 <div class="logo-space">
                     <img src="{% static 'core/images/logo_simona.jpg' %}" alt="Simona Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;">
@@ -182,6 +185,43 @@
             </div>
         </div>
     </nav>
+
+    <!-- Sidebar Menu -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebarMenu" style="width: 320px;">
+        <div class="offcanvas-header" style="background: linear-gradient(135deg, var(--primary-blue) 0%, var(--light-blue) 100%); color: white;">
+            <h5 class="offcanvas-title" style="font-weight: 700;">
+                <i class="bi bi-menu-button-wide me-2"></i>Menú Principal
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <div class="list-group list-group-flush">
+                <a href="{% url 'google_drive_connectors' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #10b981;">
+                    <i class="bi bi-google me-3" style="font-size: 20px; color: #10b981;"></i>
+                    <span style="font-weight: 600;">Mis Conectores Google Drive</span>
+                </a>
+                <a href="{% url 'amazon_s3_connectors' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #f59e0b;">
+                    <i class="bi bi-amazon me-3" style="font-size: 20px; color: #f59e0b;"></i>
+                    <span style="font-weight: 600;">Mis Conectores Amazon S3</span>
+                </a>
+                <a href="#" class="list-group-item list-group-item-action py-3 disabled" style="border-left: 4px solid #94a3b8;">
+                    <i class="bi bi-trash3 me-3" style="font-size: 20px; color: #94a3b8;"></i>
+                    <span style="font-weight: 600; color: #94a3b8;">Mis Limpiezas Automáticas</span>
+                    <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">Próximamente</span>
+                </a>
+                <a href="#" class="list-group-item list-group-item-action py-3 disabled" style="border-left: 4px solid #94a3b8;">
+                    <i class="bi bi-gear me-3" style="font-size: 20px; color: #94a3b8;"></i>
+                    <span style="font-weight: 600; color: #94a3b8;">Configuración</span>
+                    <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">Próximamente</span>
+                </a>
+                <a href="#" class="list-group-item list-group-item-action py-3 disabled" style="border-left: 4px solid #94a3b8;">
+                    <i class="bi bi-question-circle me-3" style="font-size: 20px; color: #94a3b8;"></i>
+                    <span style="font-weight: 600; color: #94a3b8;">Ayuda</span>
+                    <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">Próximamente</span>
+                </a>
+            </div>
+        </div>
+    </div>
 
     <div class="container">
         <div class="welcome-section">

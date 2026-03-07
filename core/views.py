@@ -78,6 +78,26 @@ def connector_list(request):
     return render(request, 'core/connector_list.html', {'connectors': connectors})
 
 @login_required
+def google_drive_connectors(request):
+    """Lista solo conectores de Google Drive"""
+    connectors = Connector.objects.filter(user=request.user, destination_type='google_drive')
+    return render(request, 'core/connector_list.html', {
+        'connectors': connectors,
+        'filter_type': 'google_drive',
+        'page_title': 'Conectores de Google Drive'
+    })
+
+@login_required
+def amazon_s3_connectors(request):
+    """Lista solo conectores de Amazon S3"""
+    connectors = Connector.objects.filter(user=request.user, destination_type='s3')
+    return render(request, 'core/connector_list.html', {
+        'connectors': connectors,
+        'filter_type': 's3',
+        'page_title': 'Conectores de Amazon S3'
+    })
+
+@login_required
 def edit_connector(request, connector_id):
     connector = get_object_or_404(Connector, id=connector_id, user=request.user)
     
@@ -87,11 +107,10 @@ def edit_connector(request, connector_id):
             connector = form.save()
             messages.success(request, '¡Conector actualizado exitosamente!')
             
-            # Si cambió la frecuencia, forzar actualización del scheduler
-            from .scheduler import check_and_schedule_connectors
+            # Si cambió la frecuencia, re-programar el conector
+            from .scheduler import schedule_connector
             try:
-                check_and_schedule_connectors()
-                messages.info(request, 'Frecuencia de sincronización actualizada.')
+                schedule_connector(connector)
             except Exception as e:
                 logger.warning(f"Error al actualizar scheduler: {str(e)}")
             
@@ -101,6 +120,29 @@ def edit_connector(request, connector_id):
         form = ConnectorForm(instance=connector)
     
     return render(request, 'core/edit_connector.html', {'form': form, 'connector': connector})
+
+@login_required
+def delete_connector(request, connector_id):
+    """Elimina un conector y todas sus tareas asociadas"""
+    connector = get_object_or_404(Connector, id=connector_id, user=request.user)
+    
+    if request.method == 'POST':
+        # Eliminar job del scheduler si existe
+        from .scheduler import scheduler
+        job_id = f"sync_connector_{connector.id}"
+        try:
+            if scheduler and scheduler.get_job(job_id):
+                scheduler.remove_job(job_id)
+                logger.info(f"Job {job_id} eliminado del scheduler")
+        except Exception as e:
+            logger.warning(f"Error al eliminar job del scheduler: {str(e)}")
+        
+        # Django eliminará automáticamente SyncTasks y SyncExecutions por CASCADE
+        connector.delete()
+        messages.success(request, f'Conector "{connector.name}" eliminado exitosamente.')
+        return redirect('connector_list')
+    
+    return redirect('connector_list')
 
 @login_required
 def authorize_google_drive(request):
@@ -191,11 +233,6 @@ def execute_sync(request, sync_task_id):
     orchestrator = SyncOrchestrator(sync_task)
     result = orchestrator.execute()
     
-    if result['status'] == 'success':
-        messages.success(request, f"¡Sincronización exitosa! {result['records']} registros sincronizados.")
-    else:
-        messages.error(request, f"Error en sincronización: {result.get('error', 'Error desconocido')}")
-    
     return redirect('sync_task_list', connector_id=sync_task.connector.id)
 
 @login_required
@@ -208,7 +245,6 @@ def sync_connector_now(request, connector_id):
     sync_tasks = SyncTask.objects.filter(connector=connector)
     
     if not sync_tasks.exists():
-        messages.warning(request, 'No hay tareas de sincronización configuradas para este conector.')
         return redirect('connector_list')
     
     # Crear registro de ejecución
@@ -242,15 +278,12 @@ def sync_connector_now(request, connector_id):
         
         if tables_failed == 0:
             execution.status = 'success'
-            messages.success(request, f'¡Sincronización completada! {tables_success} tabla(s) sincronizada(s), {total_records} registro(s) en total.')
         elif tables_success > 0:
             execution.status = 'partial'
             execution.error_message = '; '.join(errors)
-            messages.warning(request, f'Sincronización parcial: {tables_success} exitosa(s), {tables_failed} fallida(s).')
         else:
             execution.status = 'failed'
             execution.error_message = '; '.join(errors)
-            messages.error(request, f'Error en sincronización: Todas las tablas fallaron.')
         
         execution.save()
         
@@ -259,7 +292,6 @@ def sync_connector_now(request, connector_id):
         execution.error_message = str(e)
         execution.finished_at = timezone.now()
         execution.save()
-        messages.error(request, f'Error en sincronización: {str(e)}')
     
     return redirect('connector_list')
 
@@ -316,18 +348,11 @@ def select_tables(request, connector_id):
                     execution.finished_at = timezone.now()
                     execution.status = 'success' if tables_failed == 0 else 'partial'
                     execution.save()
-                    
-                    messages.success(request, '¡Primera sincronización completada!')
                 except Exception as e:
                     execution.status = 'failed'
                     execution.error_message = str(e)
                     execution.finished_at = timezone.now()
                     execution.save()
-                    messages.warning(request, f'Tablas agregadas pero hubo un error en la sincronización: {str(e)}')
-            else:
-                messages.info(request, 'Las tablas seleccionadas ya estaban configuradas.')
-        else:
-            messages.warning(request, 'No seleccionaste ninguna tabla.')
         
         return redirect('connector_list')
     
