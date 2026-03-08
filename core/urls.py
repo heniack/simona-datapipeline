@@ -20,4 +20,11 @@ urlpatterns = [
     path('api/get-database-tables/', views.get_database_tables, name='get_database_tables'),
     path('google/authorize/', views.authorize_google_drive, name='authorize_google_drive'),
     path('oauth2callback', views.oauth2callback, name='oauth2callback'),
+    
+    # Cleanup URLs
+    path('cleanup-tasks/', views.cleanup_task_list, name='cleanup_task_list'),
+    path('cleanup-tasks/create/', views.create_cleanup_task, name='create_cleanup_task'),
+    path('cleanup-tasks/<int:cleanup_task_id>/', views.cleanup_task_detail, name='cleanup_task_detail'),
+    path('cleanup-tasks/<int:cleanup_task_id>/execute/', views.execute_cleanup_now, name='execute_cleanup_now'),
+    path('cleanup-tasks/<int:cleanup_task_id>/delete/', views.delete_cleanup_task, name='delete_cleanup_task'),
 ]

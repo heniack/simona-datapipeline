@@ -1,0 +1,235 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ cleanup_task.name }} - Simona DataPipeline</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --light-blue: #3b82f6;
+            --danger-red: #ef4444;
+        }
+        body {
+            background: linear-gradient(135deg, #fee2e2 0%, #ffffff 100%);
+            min-height: 100vh;
+        }
+        .navbar-custom {
+            background: linear-gradient(90deg, var(--primary-blue) 0%, var(--light-blue) 100%) !important;
+            box-shadow: 0 2px 10px rgba(37, 99, 235, 0.2);
+            padding: 1rem 0;
+        }
+        .logo-space {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white !important;
+            display: flex;
+            align-items: center;
+        }
+        .user-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            color: white;
+        }
+        .page-header {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            border-top: 5px solid var(--danger-red);
+        }
+        .page-header h1 {
+            color: var(--danger-red);
+            font-weight: 700;
+        }
+        .history-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+        }
+        .table-modern {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .table-modern thead {
+            background: linear-gradient(90deg, var(--danger-red) 0%, #dc2626 100%);
+            color: white;
+        }
+        .table-modern tbody tr:hover {
+            background-color: #fef2f2;
+        }
+        .btn-custom-primary {
+            background: linear-gradient(90deg, var(--primary-blue) 0%, var(--light-blue) 100%);
+            border: none;
+            color: white;
+            padding: 0.7rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container-fluid px-4">
+            <button class="btn btn-light me-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" style="border-radius: 10px;">
+                <i class="bi bi-list" style="font-size: 24px;"></i>
+            </button>
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <div class="logo-space"><img src="{% static 'core/images/logo_simona.jpg' %}" alt="Simona Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;"></div>
+                Simona DataPipeline
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border-color: white;">
+                <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item me-3"><span class="user-badge"><i class="bi bi-person-circle me-2"></i>{{ user.username }}</span></li>
+                    <li class="nav-item"><a class="btn btn-light btn-sm" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar Menu -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebarMenu" style="width: 320px;">
+        <div class="offcanvas-header" style="background: linear-gradient(135deg, var(--primary-blue) 0%, var(--light-blue) 100%); color: white;">
+            <h5 class="offcanvas-title" style="font-weight: 700;">
+                <i class="bi bi-menu-button-wide me-2"></i>Menú Principal
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <div class="list-group list-group-flush">
+                <a href="{% url 'google_drive_connectors' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #10b981;">
+                    <i class="bi bi-google me-3" style="font-size: 20px; color: #10b981;"></i>
+                    <span style="font-weight: 600;">Mis Conectores Google Drive</span>
+                </a>
+                <a href="{% url 'amazon_s3_connectors' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #f59e0b;">
+                    <i class="bi bi-amazon me-3" style="font-size: 20px; color: #f59e0b;"></i>
+                    <span style="font-weight: 600;">Mis Conectores Amazon S3</span>
+                </a>
+                <a href="{% url 'cleanup_task_list' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #ef4444;">
+                    <i class="bi bi-trash3 me-3" style="font-size: 20px; color: #ef4444;"></i>
+                    <span style="font-weight: 600;">Mis Limpiezas Automáticas</span>
+                </a>
+                <a href="#" class="list-group-item list-group-item-action py-3 disabled" style="border-left: 4px solid #94a3b8;">
+                    <i class="bi bi-gear me-3" style="font-size: 20px; color: #94a3b8;"></i>
+                    <span style="font-weight: 600; color: #94a3b8;">Configuración</span>
+                    <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">Próximamente</span>
+                </a>
+                <a href="#" class="list-group-item list-group-item-action py-3 disabled" style="border-left: 4px solid #94a3b8;">
+                    <i class="bi bi-question-circle me-3" style="font-size: 20px; color: #94a3b8;"></i>
+                    <span style="font-weight: 600; color: #94a3b8;">Ayuda</span>
+                    <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">Próximamente</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="bi bi-trash3 me-2"></i>{{ cleanup_task.name }}</h1>
+                    <p class="text-muted mb-0 mt-2">
+                        Base de datos: <strong>{{ cleanup_task.pg_database }}</strong> | 
+                        Tabla: <strong>{{ cleanup_task.table_name }}</strong> | 
+                        Campo: <strong>{{ cleanup_task.timestamp_column }}</strong>
+                    </p>
+                    <p class="text-muted mb-0">
+                        Retención: <strong>{{ cleanup_task.retention_display }}</strong> | 
+                        Frecuencia: <strong>{{ cleanup_task.get_cleanup_frequency_display }}</strong>
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'cleanup_task_list' %}" class="btn btn-secondary me-2">
+                        <i class="bi bi-arrow-left me-2"></i>Volver
+                    </a>
+                    <a href="{% url 'execute_cleanup_now' cleanup_task.id %}" class="btn btn-custom-primary">
+                        <i class="bi bi-play-fill me-2"></i>Ejecutar Ahora
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-card">
+            <h4 style="color: var(--danger-red); margin-bottom: 1.5rem;">
+                <i class="bi bi-clock-history me-2"></i>Últimas 20 Ejecuciones
+            </h4>
+            
+            {% if executions %}
+                <div class="table-responsive table-modern">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th><i class="bi bi-calendar me-2"></i>Fecha</th>
+                                <th><i class="bi bi-trash me-2"></i>Filas Eliminadas</th>
+                                <th><i class="bi bi-clock me-2"></i>Duración</th>
+                                <th><i class="bi bi-info-circle me-2"></i>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for execution in executions %}
+                                <tr>
+                                    <td>{{ execution.started_at|date:"d/m/Y H:i:s" }}</td>
+                                    <td>
+                                        <strong>{{ execution.rows_deleted }}</strong> registro{% if execution.rows_deleted != 1 %}s{% endif %}
+                                    </td>
+                                    <td>{{ execution.duration }}</td>
+                                    <td>
+                                        {% if execution.status == 'success' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle me-1"></i>Exitoso
+                                            </span>
+                                        {% elif execution.status == 'failed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-x-circle me-1"></i>Fallido
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">
+                                                <i class="bi bi-hourglass-split me-1"></i>En Progreso
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if execution.error_message %}
+                                    <tr>
+                                        <td colspan="4" class="table-danger">
+                                            <small><strong>Error:</strong> {{ execution.error_message }}</small>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-3 mb-0">Aún no hay ejecuciones registradas</p>
+                    <p class="small">Las ejecuciones automáticas aparecerán aquí según la frecuencia configurada</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

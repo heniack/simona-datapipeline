@@ -398,3 +398,109 @@ def get_database_tables(request):
         return JsonResponse(result)
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+
+# ============================================
+# CLEANUP VIEWS (Limpiezas Automáticas)
+# ============================================
+
+@login_required
+def cleanup_task_list(request):
+    """Lista todas las tareas de limpieza del usuario"""
+    from .models import CleanupTask
+    
+    cleanup_tasks = CleanupTask.objects.filter(user=request.user)
+    return render(request, 'core/cleanup_task_list.html', {
+        'cleanup_tasks': cleanup_tasks
+    })
+
+
+@login_required
+def create_cleanup_task(request):
+    """Crea una nueva tarea de limpieza"""
+    from .forms import CleanupTaskForm
+    from .services import CleanupOrchestrator
+    from django.http import JsonResponse
+    
+    if request.method == 'POST':
+        # Si es AJAX, obtener columnas timestamp
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            import json
+            data = json.loads(request.body)
+            
+            columns = CleanupOrchestrator.get_timestamp_columns(
+                data.get('host'),
+                data.get('port', 5432),
+                data.get('database'),
+                data.get('user'),
+                data.get('password'),
+                data.get('table_name')
+            )
+            
+            return JsonResponse({'success': True, 'columns': columns})
+        
+        # Si es POST normal, crear la tarea
+        form = CleanupTaskForm(request.POST)
+        if form.is_valid():
+            cleanup_task = form.save(commit=False)
+            cleanup_task.user = request.user
+            cleanup_task.save()
+            
+            # Programar en el scheduler
+            from .scheduler import schedule_cleanup_task
+            schedule_cleanup_task(cleanup_task)
+            
+            return redirect('cleanup_task_detail', cleanup_task_id=cleanup_task.id)
+    else:
+        form = CleanupTaskForm()
+    
+    return render(request, 'core/create_cleanup_task.html', {'form': form})
+
+
+@login_required
+def cleanup_task_detail(request, cleanup_task_id):
+    """Muestra el detalle de una tarea de limpieza con historial"""
+    from .models import CleanupTask, CleanupExecution
+    
+    cleanup_task = get_object_or_404(CleanupTask, id=cleanup_task_id, user=request.user)
+    executions = CleanupExecution.objects.filter(cleanup_task=cleanup_task)[:20]
+    
+    return render(request, 'core/cleanup_task_detail.html', {
+        'cleanup_task': cleanup_task,
+        'executions': executions
+    })
+
+
+@login_required
+def execute_cleanup_now(request, cleanup_task_id):
+    """Ejecuta una limpieza manualmente"""
+    from .models import CleanupTask
+    from .services import CleanupOrchestrator
+    
+    cleanup_task = get_object_or_404(CleanupTask, id=cleanup_task_id, user=request.user)
+    
+    orchestrator = CleanupOrchestrator(cleanup_task)
+    orchestrator.execute()
+    
+    return redirect('cleanup_task_detail', cleanup_task_id=cleanup_task.id)
+
+
+@login_required
+def delete_cleanup_task(request, cleanup_task_id):
+    """Elimina una tarea de limpieza"""
+    from .models import CleanupTask
+    
+    cleanup_task = get_object_or_404(CleanupTask, id=cleanup_task_id, user=request.user)
+    
+    if request.method == 'POST':
+        # Remover del scheduler
+        from . import scheduler
+        job_id = f"cleanup_{cleanup_task.id}"
+        if scheduler.scheduler and scheduler.scheduler.get_job(job_id):
+            scheduler.scheduler.remove_job(job_id)
+            print(f"✓ Job {job_id} removido del scheduler")
+        
+        cleanup_task.delete()
+        return redirect('cleanup_task_list')
+    
+    return redirect('cleanup_task_detail', cleanup_task_id=cleanup_task.id)

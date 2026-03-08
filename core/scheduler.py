@@ -170,8 +170,9 @@ def start_scheduler():
         from django.db import connection
         connection.ensure_connection()
         schedule_all_connectors()
+        schedule_all_cleanup_tasks()
     except Exception as e:
-        print(f"⚠ Error al programar conectores iniciales: {e}")
+        print(f"⚠ Error al programar trabajos iniciales: {e}")
     
     print("=" * 60)
     
@@ -189,3 +190,92 @@ def stop_scheduler():
         scheduler.shutdown()
         scheduler = None
         logger.info("✓ Scheduler detenido")
+
+
+# ============================================
+# CLEANUP SCHEDULING (Limpiezas Automáticas)
+# ============================================
+
+def execute_cleanup_for_task(cleanup_task_id):
+    """
+    Ejecuta la limpieza para una tarea específica.
+    Esta función se ejecuta en segundo plano por APScheduler.
+    """
+    from .models import CleanupTask
+    from .services import CleanupOrchestrator
+    
+    try:
+        cleanup_task = CleanupTask.objects.get(id=cleanup_task_id, is_active=True)
+        logger.info(f"Ejecutando limpieza automática para: {cleanup_task.name}")
+        
+        orchestrator = CleanupOrchestrator(cleanup_task)
+        result = orchestrator.execute()
+        
+        if result['status'] == 'success':
+            logger.info(f"✓ Limpieza exitosa: {result['rows_deleted']} filas eliminadas")
+        else:
+            logger.error(f"✗ Error en limpieza: {result.get('error')}")
+            
+    except CleanupTask.DoesNotExist:
+        logger.error(f"CleanupTask con id {cleanup_task_id} no existe o no está activa")
+    except Exception as e:
+        logger.error(f"Error en limpieza automática de tarea {cleanup_task_id}: {str(e)}")
+
+
+def schedule_cleanup_task(cleanup_task):
+    """
+    Programa la limpieza de una tarea específica según su frecuencia.
+    """
+    job_id = f"cleanup_{cleanup_task.id}"
+    
+    try:
+        # Remover job existente si hay
+        if scheduler.get_job(job_id):
+            scheduler.remove_job(job_id)
+            logger.info(f"Job de limpieza existente removido para: {cleanup_task.name}")
+        
+        # Programar nuevo job
+        scheduler.add_job(
+            execute_cleanup_for_task,
+            'interval',
+            minutes=cleanup_task.cleanup_frequency,
+            id=job_id,
+            args=[cleanup_task.id],
+            replace_existing=True,
+            name=f"Cleanup: {cleanup_task.name}"
+        )
+        
+        logger.info(f"✓ Limpieza programada: {cleanup_task.name} cada {cleanup_task.cleanup_frequency} minutos")
+        print(f"✓ Programado '{cleanup_task.name}' cada {cleanup_task.get_cleanup_frequency_display()}")
+        
+    except Exception as e:
+        logger.error(f"Error al programar limpieza {cleanup_task.name}: {str(e)}")
+        print(f"✗ Error al programar '{cleanup_task.name}': {str(e)}")
+
+
+def schedule_all_cleanup_tasks():
+    """
+    Programa todas las tareas de limpieza activas.
+    """
+    from .models import CleanupTask
+    
+    try:
+        cleanup_tasks = CleanupTask.objects.filter(is_active=True)
+        count = cleanup_tasks.count()
+        
+        if count == 0:
+            logger.info("No hay tareas de limpieza activas para programar")
+            print("ℹ No hay tareas de limpieza activas")
+            return
+        
+        print(f"📋 Programando {count} tarea(s) de limpieza...")
+        
+        for cleanup_task in cleanup_tasks:
+            schedule_cleanup_task(cleanup_task)
+        
+        print(f"✅ {count} tarea(s) de limpieza programadas exitosamente")
+        logger.info(f"✓ {count} tareas de limpieza programadas")
+        
+    except Exception as e:
+        logger.error(f"Error al programar tareas de limpieza: {str(e)}")
+        print(f"✗ Error: {str(e)}")

@@ -535,3 +535,125 @@ class SyncOrchestrator:
                 'status': 'failed',
                 'error': str(e)
             }
+
+
+class CleanupOrchestrator:
+    """Orquestador de limpieza automática de datos antiguos"""
+    
+    def __init__(self, cleanup_task):
+        from .models import CleanupTask
+        self.cleanup_task = cleanup_task
+    
+    def get_connection(self):
+        """Conecta al PostgreSQL"""
+        return psycopg2.connect(
+            host=self.cleanup_task.pg_host,
+            port=self.cleanup_task.pg_port,
+            database=self.cleanup_task.pg_database,
+            user=self.cleanup_task.pg_user,
+            password=self.cleanup_task.pg_password
+        )
+    
+    @staticmethod
+    def get_timestamp_columns(host, port, database, user, password, table_name):
+        """Obtiene solo las columnas de tipo timestamp/datetime de una tabla"""
+        try:
+            conn = psycopg2.connect(
+                host=host,
+                port=port,
+                database=database,
+                user=user,
+                password=password
+            )
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT column_name, data_type
+                FROM information_schema.columns
+                WHERE table_schema = 'public' 
+                AND table_name = %s
+                AND data_type IN ('timestamp without time zone', 'timestamp with time zone', 'date')
+                ORDER BY ordinal_position;
+            """, (table_name,))
+            
+            columns = [{'name': row[0], 'type': row[1]} for row in cursor.fetchall()]
+            cursor.close()
+            conn.close()
+            
+            return columns
+        except Exception as e:
+            print(f"Error obteniendo columnas timestamp: {e}")
+            return []
+    
+    def execute(self):
+        """Ejecuta la limpieza eliminando registros antiguos"""
+        from .models import CleanupExecution
+        from django.utils import timezone as django_timezone
+        
+        # Crear registro de ejecución
+        execution = CleanupExecution.objects.create(
+            cleanup_task=self.cleanup_task,
+            status='running'
+        )
+        
+        try:
+            # 1. Calcular fecha límite
+            from datetime import timedelta
+            now = django_timezone.now()
+            retention_delta = timedelta(
+                days=self.cleanup_task.retention_months * 30 + self.cleanup_task.retention_days,
+                hours=self.cleanup_task.retention_hours
+            )
+            cutoff_date = now - retention_delta
+            
+            print(f"🧹 Ejecutando limpieza: {self.cleanup_task.name}")
+            print(f"   Tabla: {self.cleanup_task.table_name}")
+            print(f"   Campo: {self.cleanup_task.timestamp_column}")
+            print(f"   Retención: {self.cleanup_task.retention_display}")
+            print(f"   Fecha límite: {cutoff_date}")
+            
+            # 2. Conectar y ejecutar DELETE
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            delete_query = f"""
+                DELETE FROM {self.cleanup_task.table_name}
+                WHERE {self.cleanup_task.timestamp_column} < %s
+            """
+            
+            cursor.execute(delete_query, (cutoff_date,))
+            rows_deleted = cursor.rowcount
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            print(f"✅ Limpieza exitosa: {rows_deleted} filas eliminadas")
+            
+            # 3. Actualizar ejecución
+            execution.status = 'success'
+            execution.rows_deleted = rows_deleted
+            execution.finished_at = django_timezone.now()
+            execution.save()
+            
+            # 4. Actualizar tarea
+            self.cleanup_task.last_cleanup_at = django_timezone.now()
+            self.cleanup_task.save()
+            
+            return {
+                'status': 'success',
+                'rows_deleted': rows_deleted
+            }
+            
+        except Exception as e:
+            print(f"❌ Error en limpieza: {e}")
+            
+            execution.status = 'failed'
+            execution.error_message = str(e)
+            execution.finished_at = django_timezone.now()
+            execution.save()
+            
+            return {
+                'status': 'failed',
+                'error': str(e)
+            }

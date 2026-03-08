@@ -149,3 +149,96 @@ class SyncExecution(models.Model):
                 seconds = seconds % 60
                 return f"{minutes}m {seconds}s"
         return "En progreso"
+
+
+class CleanupTask(models.Model):
+    """Tarea de limpieza automática de datos antiguos"""
+    FREQUENCY_CHOICES = [
+        (60, '1 hora'),
+        (360, '6 horas'),
+        (720, '12 horas'),
+        (1440, '24 horas'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cleanup_tasks')
+    name = models.CharField(max_length=100, help_text='Nombre descriptivo de la limpieza')
+    
+    # Conexión PostgreSQL
+    pg_host = models.CharField(max_length=255)
+    pg_port = models.IntegerField(default=5432)
+    pg_database = models.CharField(max_length=100)
+    pg_user = models.CharField(max_length=100)
+    pg_password = models.CharField(max_length=255)
+    
+    # Configuración de limpieza
+    table_name = models.CharField(max_length=100)
+    timestamp_column = models.CharField(max_length=100, help_text='Campo timestamp para evaluar antigüedad')
+    
+    # Retención
+    retention_months = models.IntegerField(default=0, help_text='Meses de retención (0-12)')
+    retention_days = models.IntegerField(default=7, help_text='Días de retención (0-365)')
+    retention_hours = models.IntegerField(default=0, help_text='Horas de retención (0-24)')
+    
+    # Frecuencia de ejecución
+    cleanup_frequency = models.IntegerField(choices=FREQUENCY_CHOICES, default=1440, help_text='Frecuencia de limpieza en minutos')
+    
+    # Estado
+    is_active = models.BooleanField(default=True)
+    last_cleanup_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.name} - {self.table_name}"
+    
+    @property
+    def retention_display(self):
+        """Muestra la retención en formato legible"""
+        parts = []
+        if self.retention_months > 0:
+            parts.append(f"{self.retention_months} {'mes' if self.retention_months == 1 else 'meses'}")
+        if self.retention_days > 0:
+            parts.append(f"{self.retention_days} {'día' if self.retention_days == 1 else 'días'}")
+        if self.retention_hours > 0:
+            parts.append(f"{self.retention_hours} {'hora' if self.retention_hours == 1 else 'horas'}")
+        return ', '.join(parts) if parts else '0 retención'
+
+
+class CleanupExecution(models.Model):
+    """Historial de ejecuciones de limpieza"""
+    STATUS_CHOICES = [
+        ('running', 'Ejecutando'),
+        ('success', 'Exitoso'),
+        ('failed', 'Fallido'),
+    ]
+    
+    cleanup_task = models.ForeignKey(CleanupTask, on_delete=models.CASCADE, related_name='executions')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='running')
+    rows_deleted = models.IntegerField(default=0)
+    error_message = models.TextField(blank=True, null=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-started_at']
+    
+    def __str__(self):
+        return f"{self.cleanup_task.name} - {self.rows_deleted} filas eliminadas ({self.started_at.strftime('%d/%m/%Y %H:%M')})"
+    
+    @property
+    def duration(self):
+        """Duración de la ejecución"""
+        if self.finished_at and self.started_at:
+            delta = self.finished_at - self.started_at
+            seconds = int(delta.total_seconds())
+            if seconds < 60:
+                return f"{seconds}s"
+            else:
+                minutes = seconds // 60
+                seconds = seconds % 60
+                return f"{minutes}m {seconds}s"
+        return "En progreso"
