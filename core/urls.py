@@ -6,7 +6,6 @@ urlpatterns = [
     path('signup/', views.signup, name='signup'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
-    path('connectors/', views.connector_list, name='connector_list'),
     path('connectors/google-drive/', views.google_drive_connectors, name='google_drive_connectors'),
     path('connectors/amazon-s3/', views.amazon_s3_connectors, name='amazon_s3_connectors'),
     path('connectors/create/', views.create_connector, name='create_connector'),
@@ -27,4 +26,8 @@ urlpatterns = [
     path('cleanup-tasks/<int:cleanup_task_id>/', views.cleanup_task_detail, name='cleanup_task_detail'),
     path('cleanup-tasks/<int:cleanup_task_id>/execute/', views.execute_cleanup_now, name='execute_cleanup_now'),
     path('cleanup-tasks/<int:cleanup_task_id>/delete/', views.delete_cleanup_task, name='delete_cleanup_task'),
+    
+    # Settings & Help URLs
+    path('settings/', views.settings_view, name='settings'),
+    path('help/', views.help_view, name='help'),
 ]

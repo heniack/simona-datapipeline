@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from .encryption import encrypt_password, decrypt_password
 
 class UserProfile(models.Model):
     ROLE_CHOICES = [
@@ -43,7 +44,7 @@ class Connector(models.Model):
     pg_port = models.IntegerField(default=5432)
     pg_database = models.CharField(max_length=100)
     pg_user = models.CharField(max_length=100, default='simona_user')
-    pg_password = models.CharField(max_length=255)
+    pg_password = models.CharField(max_length=500)  # Aumentado para almacenar cifrado
     
     # Tipo de destino
     destination_type = models.CharField(max_length=20, choices=DESTINATION_CHOICES)
@@ -55,10 +56,27 @@ class Connector(models.Model):
     s3_bucket_name = models.CharField(max_length=100, blank=True, null=True)
     s3_region = models.CharField(max_length=50, blank=True, null=True)
     s3_access_key = models.CharField(max_length=100, blank=True, null=True)
-    s3_secret_key = models.CharField(max_length=255, blank=True, null=True)
+    s3_secret_key = models.CharField(max_length=500, blank=True, null=True)  # Aumentado para almacenar cifrado
     
     class Meta:
         ordering = ['-created_at']
+    
+    def save(self, *args, **kwargs):
+        """Cifrar contraseñas antes de guardar"""
+        # Solo cifrar si la contraseña cambió (no está ya cifrada)
+        if self.pg_password and not self.pg_password.startswith('gAAAAA'):
+            self.pg_password = encrypt_password(self.pg_password)
+        if self.s3_secret_key and not self.s3_secret_key.startswith('gAAAAA'):
+            self.s3_secret_key = encrypt_password(self.s3_secret_key)
+        super().save(*args, **kwargs)
+    
+    def get_pg_password(self):
+        """Obtener contraseña descifrada"""
+        return decrypt_password(self.pg_password)
+    
+    def get_s3_secret_key(self):
+        """Obtener secret key descifrada"""
+        return decrypt_password(self.s3_secret_key)
     
     def __str__(self):
         return f"{self.name} ({self.get_destination_type_display()}) - {self.user.username}"
@@ -168,7 +186,7 @@ class CleanupTask(models.Model):
     pg_port = models.IntegerField(default=5432)
     pg_database = models.CharField(max_length=100)
     pg_user = models.CharField(max_length=100)
-    pg_password = models.CharField(max_length=255)
+    pg_password = models.CharField(max_length=500)  # Aumentado para almacenar cifrado
     
     # Configuración de limpieza
     table_name = models.CharField(max_length=100)
@@ -191,6 +209,16 @@ class CleanupTask(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+    
+    def save(self, *args, **kwargs):
+        """Cifrar contraseña antes de guardar"""
+        if self.pg_password and not self.pg_password.startswith('gAAAAA'):
+            self.pg_password = encrypt_password(self.pg_password)
+        super().save(*args, **kwargs)
+    
+    def get_pg_password(self):
+        """Obtener contraseña descifrada"""
+        return decrypt_password(self.pg_password)
     
     def __str__(self):
         return f"{self.name} - {self.table_name}"

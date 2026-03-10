@@ -1,0 +1,345 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ayuda - Simona DataPipeline</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --light-blue: #3b82f6;
+            --cyan: #06b6d4;
+        }
+        body {
+            background: linear-gradient(135deg, #cffafe 0%, #ffffff 100%);
+            min-height: 100vh;
+        }
+        .navbar-custom {
+            background: linear-gradient(90deg, var(--primary-blue) 0%, var(--light-blue) 100%) !important;
+            box-shadow: 0 2px 10px rgba(37, 99, 235, 0.2);
+            padding: 1rem 0;
+        }
+        .logo-space {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white !important;
+            display: flex;
+            align-items: center;
+        }
+        .user-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            color: white;
+        }
+        .help-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2.5rem;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            margin-top: 2rem;
+            border-top: 5px solid var(--cyan);
+        }
+        .help-card h2 {
+            color: var(--cyan);
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+        .help-section {
+            margin-bottom: 2.5rem;
+        }
+        .help-section h3 {
+            color: #334155;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e0f2fe;
+        }
+        .help-section h4 {
+            color: #64748b;
+            font-weight: 600;
+            margin-top: 1.2rem;
+            margin-bottom: 0.8rem;
+            font-size: 1.1rem;
+        }
+        .help-section p, .help-section li {
+            color: #475569;
+            line-height: 1.7;
+        }
+        .feature-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .badge-drive {
+            background: #d1fae5;
+            color: #10b981;
+        }
+        .badge-s3 {
+            background: #fed7aa;
+            color: #f59e0b;
+        }
+        .badge-cleanup {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container-fluid px-4">
+            <button class="btn btn-light me-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" style="border-radius: 10px;">
+                <i class="bi bi-list" style="font-size: 24px;"></i>
+            </button>
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <div class="logo-space"><img src="{% static 'core/images/logo_simona.jpg' %}" alt="Simona Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;"></div>
+                Simona DataPipeline
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border-color: white;">
+                <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item me-3"><span class="user-badge"><i class="bi bi-person-circle me-2"></i>{{ user.username }}</span></li>
+                    <li class="nav-item"><a class="btn btn-light btn-sm" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar Menu -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebarMenu" style="width: 320px;">
+        <div class="offcanvas-header" style="background: linear-gradient(135deg, var(--primary-blue) 0%, var(--light-blue) 100%); color: white;">
+            <h5 class="offcanvas-title" style="font-weight: 700;">
+                <i class="bi bi-menu-button-wide me-2"></i>Menú Principal
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <div class="list-group list-group-flush">
+                <a href="{% url 'google_drive_connectors' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #10b981;">
+                    <i class="bi bi-google me-3" style="font-size: 20px; color: #10b981;"></i>
+                    <span style="font-weight: 600;">Mis Conectores Google Drive</span>
+                </a>
+                <a href="{% url 'amazon_s3_connectors' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #f59e0b;">
+                    <i class="bi bi-amazon me-3" style="font-size: 20px; color: #f59e0b;"></i>
+                    <span style="font-weight: 600;">Mis Conectores Amazon S3</span>
+                </a>
+                <a href="{% url 'cleanup_task_list' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #ef4444;">
+                    <i class="bi bi-trash3 me-3" style="font-size: 20px; color: #ef4444;"></i>
+                    <span style="font-weight: 600;">Mis Limpiezas Automáticas</span>
+                </a>
+                <a href="{% url 'settings' %}" class="list-group-item list-group-item-action py-3" style="border-left: 4px solid #8b5cf6;">
+                    <i class="bi bi-gear me-3" style="font-size: 20px; color: #8b5cf6;"></i>
+                    <span style="font-weight: 600;">Configuración</span>
+                </a>
+                <a href="{% url 'help' %}" class="list-group-item list-group-item-action py-3 active" style="border-left: 4px solid #06b6d4; background-color: #cffafe;">
+                    <i class="bi bi-question-circle me-3" style="font-size: 20px; color: #06b6d4;"></i>
+                    <span style="font-weight: 600; color: #06b6d4;">Ayuda</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="help-card">
+                    <h2><i class="bi bi-question-circle me-2"></i>Centro de Ayuda</h2>
+                    <p class="text-muted mb-4">Guía completa para usar Simona DataPipeline</p>
+                    
+                    <!-- Introducción -->
+                    <div class="help-section">
+                        <h3><i class="bi bi-info-circle me-2"></i>¿Qué es Simona DataPipeline?</h3>
+                        <p>
+                            Simona DataPipeline es una plataforma que te permite sincronizar automáticamente datos desde bases de datos PostgreSQL 
+                            hacia servicios de almacenamiento en la nube (Google Drive y Amazon S3) y gestionar la limpieza automática de datos 
+                            antiguos basándose en políticas de retención personalizadas.
+                        </p>
+                        <div class="mt-3">
+                            <span class="feature-badge badge-drive"><i class="bi bi-google me-1"></i>Google Drive</span>
+                            <span class="feature-badge badge-s3"><i class="bi bi-amazon me-1"></i>Amazon S3</span>
+                            <span class="feature-badge badge-cleanup"><i class="bi bi-trash3 me-1"></i>Limpiezas Automáticas</span>
+                        </div>
+                    </div>
+
+                    <!-- Conectores Google Drive -->
+                    <div class="help-section">
+                        <h3><i class="bi bi-google me-2" style="color: #10b981;"></i>Conectores Google Drive</h3>
+                        <h4>¿Cómo crear un conector?</h4>
+                        <ol>
+                            <li>Haz clic en "Mis Conectores Google Drive" en el menú</li>
+                            <li>Presiona el botón "Crear Nuevo Conector"</li>
+                            <li>Completa los datos de conexión PostgreSQL (host, puerto, base de datos, usuario, contraseña)</li>
+                            <li>Elige la frecuencia de sincronización automática</li>
+                            <li>Presiona "Configurar Google Drive" para autorizar el acceso</li>
+                            <li>Selecciona las tablas que deseas sincronizar</li>
+                        </ol>
+                        <p class="mt-3">
+                            <strong>Nota:</strong> La primera vez necesitarás autenticar tu cuenta de Google para permitir que Simona suba archivos a tu Drive.
+                        </p>
+                    </div>
+
+                    <!-- Conectores Amazon S3 -->
+                    <div class="help-section">
+                        <h3><i class="bi bi-amazon me-2" style="color: #f59e0b;"></i>Conectores Amazon S3</h3>
+                        <h4>¿Cómo crear un conector?</h4>
+                        <ol>
+                            <li>Haz clic en "Mis Conectores Amazon S3" en el menú</li>
+                            <li>Presiona el botón "Crear Nuevo Conector"</li>
+                            <li>Completa los datos de conexión PostgreSQL</li>
+                            <li>Ingresa tus credenciales de AWS (Access Key, Secret Key, Región)</li>
+                            <li>Especifica el nombre del bucket S3 donde se guardarán los archivos</li>
+                            <li>Elige la frecuencia de sincronización</li>
+                            <li>Selecciona las tablas que deseas sincronizar</li>
+                        </ol>
+                        <p class="mt-3">
+                            <strong>Nota:</strong> Asegúrate de tener permisos de escritura en el bucket S3 especificado.
+                        </p>
+                    </div>
+
+                    <!-- Tareas de Sincronización -->
+                    <div class="help-section">
+                        <h3><i class="bi bi-arrow-repeat me-2" style="color: #2563eb;"></i>Tareas de Sincronización</h3>
+                        <p>
+                            Cada tabla que sincronizas tiene su propia tarea independiente. Las tareas de sincronización se ejecutan automáticamente 
+                            según la frecuencia configurada en el conector.
+                        </p>
+                        <h4>Funcionamiento de la sincronización:</h4>
+                        <ul>
+                            <li><strong>Primera sincronización:</strong> Exporta todos los datos de la tabla a formato CSV</li>
+                            <li><strong>Sincronizaciones siguientes:</strong> Solo exporta las filas nuevas basándose en la columna timestamp que seleccionaste</li>
+                            <li><strong>Cambios de esquema:</strong> Si la estructura de la tabla cambia, se crea un nuevo archivo con el esquema actualizado</li>
+                            <li><strong>Archivos viejos:</strong> Se renombran con "_OLD_[fecha]" cuando hay cambios de estructura</li>
+                        </ul>
+                        <h4>Ejecución manual:</h4>
+                        <p>
+                            Puedes ejecutar una sincronización inmediatamente usando el botón "Sincronizar Ahora" en lugar de esperar la programación automática.
+                        </p>
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Importante:</strong> Para que la sincronización incremental funcione correctamente, cada vez que actualices registros 
+                            en tu base de datos, debes actualizar el campo timestamp (por ejemplo: <code>updated_at = NOW()</code>). Esto permite que 
+                            Simona detecte qué registros son nuevos o fueron modificados desde la última sincronización.
+                        </div>
+                    </div>
+
+                    <!-- Limpiezas Automáticas -->
+                    <div class="help-section">
+                        <h3><i class="bi bi-trash3 me-2" style="color: #ef4444;"></i>Limpiezas Automáticas</h3>
+                        <p>
+                            Las limpiezas automáticas te permiten eliminar datos antiguos de tus bases de datos PostgreSQL basándose en políticas de retención.
+                        </p>
+                        <h4>¿Cómo crear una limpieza automática?</h4>
+                        <ol>
+                            <li>Haz clic en "Mis Limpiezas Automáticas" en el menú</li>
+                            <li>Presiona "Crear Nueva Limpieza"</li>
+                            <li>Asigna un nombre descriptivo</li>
+                            <li>Completa los datos de conexión PostgreSQL</li>
+                            <li>Ingresa el nombre de la tabla a limpiar</li>
+                            <li>Presiona "Cargar Campos Timestamp" para ver las columnas de fecha disponibles</li>
+                            <li>Selecciona la columna timestamp que define la antigüedad de los datos</li>
+                            <li>Configura la retención (meses, días, horas)</li>
+                            <li>Elige la frecuencia de ejecución (1, 6, 12 o 24 horas)</li>
+                        </ol>
+                        <h4>Política de retención:</h4>
+                        <p>
+                            La retención se calcula como: <strong>meses × 30 días + días + horas</strong>. Los datos más antiguos que este período serán eliminados automáticamente.
+                        </p>
+                        <div class="alert alert-danger mt-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>Advertencia:</strong> La eliminación de datos es irreversible. Asegúrate de tener respaldos antes de configurar limpiezas automáticas.
+                        </div>
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Permisos requeridos:</strong> Asegúrate de que el usuario de PostgreSQL tenga los permisos necesarios:
+                            <pre class="mt-2 mb-0"><code>GRANT SELECT, DELETE ON TABLE nombre_tabla TO simona_user;</code></pre>
+                        </div>
+                        <h4>Historial de ejecuciones:</h4>
+                        <p>
+                            Cada limpieza guarda un historial con las últimas 20 ejecuciones, mostrando cuántas filas fueron eliminadas, 
+                            el tiempo de duración y el estado (exitoso o fallido).
+                        </p>
+                    </div>
+
+                    <!-- Configuración de Cuenta -->
+                    <div class="help-section">
+                        <h3><i class="bi bi-gear me-2" style="color: #8b5cf6;"></i>Configuración de Cuenta</h3>
+                        <p>
+                            En la sección de Configuración puedes actualizar tu información personal:
+                        </p>
+                        <ul>
+                            <li><strong>Nombre de usuario:</strong> Debe ser único en el sistema</li>
+                            <li><strong>Email:</strong> Tu dirección de correo electrónico</li>
+                            <li><strong>Contraseña:</strong> Para cambiarla, necesitas ingresar tu contraseña actual y confirmar la nueva (mínimo 8 caracteres)</li>
+                        </ul>
+                    </div>
+
+                    <!-- Preguntas Frecuentes -->
+                    <div class="help-section">
+                        <h3><i class="bi bi-patch-question me-2"></i>Preguntas Frecuentes</h3>
+                        
+                        <h4>¿Puedo pausar un conector temporalmente?</h4>
+                        <p>
+                            Sí, puedes desactivar un conector editándolo y desmarcando la opción "Activo". Esto detendrá las sincronizaciones automáticas 
+                            sin eliminar la configuración ni el historial.
+                        </p>
+                        
+                        <h4>¿Qué pasa si cambia la estructura de mi tabla?</h4>
+                        <p>
+                            Simona detecta cambios de esquema automáticamente. Cuando detecta un cambio, crea un nuevo archivo con el esquema actualizado 
+                            y renombra el archivo anterior agregando "_OLD_" seguido de la fecha.
+                        </p>
+                        
+                        <h4>¿Puedo sincronizar la misma tabla a Google Drive y S3?</h4>
+                        <p>
+                            Sí, puedes crear dos conectores diferentes (uno para Drive y otro para S3) apuntando a la misma base de datos y seleccionar 
+                            las mismas tablas en ambos.
+                        </p>
+                        
+                        <h4>¿Cómo sé si una limpieza automática está funcionando?</h4>
+                        <p>
+                            Puedes ver el historial de ejecuciones en la página de detalle de cada limpieza. Allí verás cuándo se ejecutó, 
+                            cuántas filas fueron eliminadas y si hubo algún error.
+                        </p>
+                        
+                        <h4>¿Qué formato tienen los archivos sincronizados?</h4>
+                        <p>
+                            Todos los datos se exportan en formato CSV (valores separados por comas) con codificación UTF-8, compatible con Excel, 
+                            Google Sheets y otras herramientas de análisis.
+                        </p>
+                    </div>
+
+                    <!-- Contacto -->
+                    <div class="help-section">
+                        <h3><i class="bi bi-envelope me-2"></i>¿Necesitas más ayuda?</h3>
+                        <p>
+                            Si tienes problemas o preguntas adicionales, no dudes en contactar al equipo de soporte.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

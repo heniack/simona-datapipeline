@@ -18,7 +18,7 @@ class PostgreSQLSync:
             port=self.connector.pg_port,
             database=self.connector.pg_database,
             user=self.connector.pg_user,
-            password=self.connector.pg_password
+            password=self.connector.get_pg_password()
         )
     
     @staticmethod
@@ -358,7 +358,7 @@ class S3Uploader:
         return boto3.client(
             's3',
             aws_access_key_id=self.connector.s3_access_key,
-            aws_secret_access_key=self.connector.s3_secret_key,
+            aws_secret_access_key=self.connector.get_s3_secret_key(),
             region_name=self.connector.s3_region
         )
     
@@ -551,7 +551,7 @@ class CleanupOrchestrator:
             port=self.cleanup_task.pg_port,
             database=self.cleanup_task.pg_database,
             user=self.cleanup_task.pg_user,
-            password=self.cleanup_task.pg_password
+            password=self.cleanup_task.get_pg_password()
         )
     
     @staticmethod

@@ -29,10 +29,11 @@ def signup(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()
+            user = form.save(commit=False)
+            user.email = request.POST.get('email', '')
+            user.save()
             UserProfile.objects.create(user=user, role='user')
             login(request, user)
-            messages.success(request, '¡Cuenta creada exitosamente!')
             return redirect('home')
     else:
         form = UserCreationForm()
@@ -47,7 +48,7 @@ def login_view(request):
             user = authenticate(username=username, password=password)
             if user is not None:
                 login(request, user)
-                messages.success(request, f'¡Bienvenido {username}!')
+
                 return redirect('home')
     else:
         form = AuthenticationForm()
@@ -55,7 +56,6 @@ def login_view(request):
 
 def logout_view(request):
     logout(request)
-    messages.info(request, 'Has cerrado sesión.')
     return redirect('home')
 
 @login_required
@@ -66,16 +66,10 @@ def create_connector(request):
             connector = form.save(commit=False)
             connector.user = request.user
             connector.save()
-            messages.success(request, '¡Conector creado exitosamente! Ahora selecciona las tablas a sincronizar.')
             return redirect('select_tables', connector_id=connector.id)
     else:
         form = ConnectorForm()
     return render(request, 'core/create_connector.html', {'form': form})
-
-@login_required
-def connector_list(request):
-    connectors = Connector.objects.filter(user=request.user)
-    return render(request, 'core/connector_list.html', {'connectors': connectors})
 
 @login_required
 def google_drive_connectors(request):
@@ -104,8 +98,15 @@ def edit_connector(request, connector_id):
     if request.method == 'POST':
         form = ConnectorForm(request.POST, instance=connector)
         if form.is_valid():
-            connector = form.save()
-            messages.success(request, '¡Conector actualizado exitosamente!')
+            connector = form.save(commit=False)
+            
+            # Si el campo de password está vacío, mantener la contraseña actual
+            if not request.POST.get('pg_password'):
+                connector.pg_password = Connector.objects.get(id=connector_id).pg_password
+            if not request.POST.get('s3_secret_key'):
+                connector.s3_secret_key = Connector.objects.get(id=connector_id).s3_secret_key
+            
+            connector.save()
             
             # Si cambió la frecuencia, re-programar el conector
             from .scheduler import schedule_connector
@@ -138,11 +139,20 @@ def delete_connector(request, connector_id):
             logger.warning(f"Error al eliminar job del scheduler: {str(e)}")
         
         # Django eliminará automáticamente SyncTasks y SyncExecutions por CASCADE
+        destination_type = connector.destination_type
         connector.delete()
-        messages.success(request, f'Conector "{connector.name}" eliminado exitosamente.')
-        return redirect('connector_list')
+        
+        # Redirigir a la vista filtrada correcta
+        if destination_type == 'google_drive':
+            return redirect('google_drive_connectors')
+        else:
+            return redirect('amazon_s3_connectors')
     
-    return redirect('connector_list')
+    # Si no es POST, redirigir a la vista filtrada
+    if connector.destination_type == 'google_drive':
+        return redirect('google_drive_connectors')
+    else:
+        return redirect('amazon_s3_connectors')
 
 @login_required
 def authorize_google_drive(request):
@@ -189,7 +199,7 @@ def oauth2callback(request):
     )
     
     messages.success(request, '¡Google Drive conectado exitosamente!')
-    return redirect('connector_list')
+    return redirect('google_drive_connectors')
 
 @login_required
 def sync_task_list(request, connector_id):
@@ -245,7 +255,11 @@ def sync_connector_now(request, connector_id):
     sync_tasks = SyncTask.objects.filter(connector=connector)
     
     if not sync_tasks.exists():
-        return redirect('connector_list')
+        # Redirigir a la vista filtrada correcta
+        if connector.destination_type == 'google_drive':
+            return redirect('google_drive_connectors')
+        else:
+            return redirect('amazon_s3_connectors')
     
     # Crear registro de ejecución
     execution = SyncExecution.objects.create(
@@ -293,7 +307,8 @@ def sync_connector_now(request, connector_id):
         execution.finished_at = timezone.now()
         execution.save()
     
-    return redirect('connector_list')
+    # Redirigir a sync_task_list del conector
+    return redirect('sync_task_list', connector_id=connector.id)
 
 @login_required
 def select_tables(request, connector_id):
@@ -354,7 +369,11 @@ def select_tables(request, connector_id):
                     execution.finished_at = timezone.now()
                     execution.save()
         
-        return redirect('connector_list')
+        # Redirigir a la vista filtrada correcta
+        if connector.destination_type == 'google_drive':
+            return redirect('google_drive_connectors')
+        else:
+            return redirect('amazon_s3_connectors')
     
     # Obtener tablas de la base de datos
     from .services import PostgreSQLSync
@@ -456,6 +475,71 @@ def create_cleanup_task(request):
     
     return render(request, 'core/create_cleanup_task.html', {'form': form})
 
+
+# ============================================
+# SETTINGS VIEWS (Configuración)
+# ============================================
+
+@login_required
+def settings_view(request):
+    """Página de configuración del usuario"""
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        current_password = request.POST.get('current_password')
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        user = request.user
+        error = None
+        
+        # Validar cambio de contraseña
+        if new_password:
+            if not current_password:
+                error = 'Debes ingresar tu contraseña actual para cambiarla'
+            elif not user.check_password(current_password):
+                error = 'La contraseña actual es incorrecta'
+            elif new_password != confirm_password:
+                error = 'Las contraseñas nuevas no coinciden'
+            elif len(new_password) < 8:
+                error = 'La contraseña debe tener al menos 8 caracteres'
+            else:
+                user.set_password(new_password)
+        
+        # Actualizar username y email
+        if not error:
+            if username and username != user.username:
+                # Verificar que no exista otro usuario con ese nombre
+                from django.contrib.auth.models import User
+                if User.objects.filter(username=username).exclude(id=user.id).exists():
+                    error = 'Ese nombre de usuario ya está en uso'
+                else:
+                    user.username = username
+            
+            if email and email != user.email:
+                user.email = email
+            
+            if not error:
+                user.save()
+                return redirect('settings')
+        
+        if error:
+            messages.error(request, error)
+    
+    return render(request, 'core/settings.html', {
+        'user': request.user
+    })
+
+
+@login_required
+def help_view(request):
+    """Página de ayuda"""
+    return render(request, 'core/help.html')
+
+
+# ============================================
+# CLEANUP TASK VIEWS (Limpiezas Automáticas)
+# ============================================
 
 @login_required
 def cleanup_task_detail(request, cleanup_task_id):

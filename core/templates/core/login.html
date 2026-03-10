@@ -35,14 +35,6 @@
         </div>
         <div class="login-body">
             <h4 class="text-center mb-4" style="color: var(--primary-blue); font-weight: 700;">Iniciar Sesión</h4>
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
             <form method="post">
                 {% csrf_token %}
                 <div class="mb-3">
