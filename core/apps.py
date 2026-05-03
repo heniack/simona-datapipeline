@@ -29,3 +29,16 @@ class CoreConfig(AppConfig):
                 print(f"❌ Error al iniciar scheduler: {str(e)}")
                 import traceback
                 traceback.print_exc()
+
+            # Crear superuser en producción si no existe
+            try:
+                from django.contrib.auth.models import User
+                from .models import UserProfile
+                if not User.objects.filter(username='administrator').exists():
+                    user = User.objects.create_superuser(username='administrator', email='', password='12345678')
+                    UserProfile.objects.get_or_create(user=user, defaults={'role': 'admin'})
+                    print('✅ Superuser "administrator" creado')
+                else:
+                    print('ℹ Superuser "administrator" ya existe')
+            except Exception as e:
+                print(f"⚠ Error creando superuser: {e}")
