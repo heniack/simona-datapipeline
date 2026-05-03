@@ -16,11 +16,12 @@ class CoreConfig(AppConfig):
         import os
         import sys
         
-        # Solo en runserver y en el proceso principal (no en el reloader)
+        # Iniciar en runserver (proceso principal) o en gunicorn
         is_runserver = 'runserver' in sys.argv
         is_main_process = os.environ.get('RUN_MAIN') == 'true'
-        
-        if is_runserver and is_main_process:
+        is_gunicorn = 'gunicorn' in sys.modules
+
+        if (is_runserver and is_main_process) or is_gunicorn:
             try:
                 from .scheduler import start_scheduler
                 start_scheduler()

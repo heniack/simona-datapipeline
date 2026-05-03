@@ -16,6 +16,7 @@ db.sqlite3
 db.sqlite3-journal
 /media
 /static
+staticfiles/
 local_settings.py
 
 # Secrets and credentials

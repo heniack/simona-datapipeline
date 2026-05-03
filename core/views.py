@@ -15,12 +15,29 @@ from .services import SyncOrchestrator
 logger = logging.getLogger(__name__)
 
 # Permitir HTTP en desarrollo (solo para localhost)
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+if os.environ.get('DEBUG', 'True') == 'True':
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
 # Configuración de Google OAuth
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
-CLIENT_SECRETS_FILE = os.path.join(settings.BASE_DIR, 'client_secret.json')
+OAUTH_REDIRECT_URI = os.environ.get('OAUTH_REDIRECT_URI', 'http://localhost:8000/oauth2callback')
+
+
+def get_client_secrets_file():
+    """Retorna la ruta a client_secret.json, creándolo desde env var si es necesario."""
+    file_path = os.path.join(settings.BASE_DIR, 'client_secret.json')
+    if os.path.exists(file_path):
+        return file_path
+    # En producción, crear desde variable de entorno
+    json_content = os.environ.get('GOOGLE_CLIENT_SECRET_JSON')
+    if json_content:
+        import tempfile
+        fd, temp_path = tempfile.mkstemp(suffix='.json')
+        with os.fdopen(fd, 'w') as f:
+            f.write(json_content)
+        return temp_path
+    raise FileNotFoundError("client_secret.json no encontrado y GOOGLE_CLIENT_SECRET_JSON no configurada")
 
 def home(request):
     return render(request, 'core/home.html')
@@ -94,33 +111,65 @@ def amazon_s3_connectors(request):
 @login_required
 def edit_connector(request, connector_id):
     connector = get_object_or_404(Connector, id=connector_id, user=request.user)
-    
+    existing_tasks = SyncTask.objects.filter(connector=connector)
+    existing_table_names = list(existing_tasks.values_list('table_name', flat=True))
+
+    # Obtener tablas disponibles de la base de datos
+    from .services import PostgreSQLSync
+    available_tables = []
+    try:
+        result = PostgreSQLSync.get_tables_from_database(
+            connector.pg_host, connector.pg_port,
+            connector.pg_database, connector.pg_user,
+            connector.get_pg_password()
+        )
+        if result.get('success'):
+            available_tables = result['tables']
+    except Exception:
+        pass
+
     if request.method == 'POST':
-        form = ConnectorForm(request.POST, instance=connector)
+        from .forms import ConnectorEditForm
+        form = ConnectorEditForm(request.POST, instance=connector)
         if form.is_valid():
-            connector = form.save(commit=False)
-            
-            # Si el campo de password está vacío, mantener la contraseña actual
-            if not request.POST.get('pg_password'):
-                connector.pg_password = Connector.objects.get(id=connector_id).pg_password
-            if not request.POST.get('s3_secret_key'):
-                connector.s3_secret_key = Connector.objects.get(id=connector_id).s3_secret_key
-            
-            connector.save()
-            
-            # Si cambió la frecuencia, re-programar el conector
+            form.save()
+
+            # Re-programar el conector con la nueva frecuencia
             from .scheduler import schedule_connector
             try:
                 schedule_connector(connector)
             except Exception as e:
                 logger.warning(f"Error al actualizar scheduler: {str(e)}")
-            
-            # Redirigir a seleccionar tablas
-            return redirect('select_tables', connector_id=connector.id)
+
+            # Gestionar tablas: agregar nuevas, eliminar deseleccionadas
+            selected_tables = request.POST.getlist('selected_tables')
+            # Eliminar tablas que fueron deseleccionadas
+            existing_tasks.exclude(table_name__in=selected_tables).delete()
+            # Agregar tablas nuevas
+            for table_name in selected_tables:
+                if table_name not in existing_table_names:
+                    SyncTask.objects.create(
+                        connector=connector,
+                        table_name=table_name,
+                        timestamp_column='updated_at',
+                        status='pending'
+                    )
+
+            messages.success(request, 'Conector actualizado correctamente.')
+            if connector.destination_type == 'google_drive':
+                return redirect('google_drive_connectors')
+            else:
+                return redirect('amazon_s3_connectors')
     else:
-        form = ConnectorForm(instance=connector)
-    
-    return render(request, 'core/edit_connector.html', {'form': form, 'connector': connector})
+        from .forms import ConnectorEditForm
+        form = ConnectorEditForm(instance=connector)
+
+    return render(request, 'core/edit_connector.html', {
+        'form': form,
+        'connector': connector,
+        'available_tables': available_tables,
+        'existing_table_names': existing_table_names,
+    })
 
 @login_required
 def delete_connector(request, connector_id):
@@ -158,11 +207,11 @@ def delete_connector(request, connector_id):
 def authorize_google_drive(request):
     """Inicia el flujo OAuth de Google Drive"""
     flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
+        get_client_secrets_file(),
         scopes=SCOPES,
-        redirect_uri='http://localhost:8000/oauth2callback'
+        redirect_uri=OAUTH_REDIRECT_URI
     )
-    
+
     authorization_url, state = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true'
@@ -175,11 +224,11 @@ def authorize_google_drive(request):
 def oauth2callback(request):
     """Callback de Google OAuth - guarda los tokens"""
     flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
+        get_client_secrets_file(),
         scopes=SCOPES,
-        redirect_uri='http://localhost:8000/oauth2callback'
+        redirect_uri=OAUTH_REDIRECT_URI
     )
-    
+
     # No validar state en desarrollo
     flow.fetch_token(code=request.GET.get('code'))
     
@@ -382,7 +431,7 @@ def select_tables(request, connector_id):
         connector.pg_port,
         connector.pg_database,
         connector.pg_user,
-        connector.pg_password
+        connector.get_pg_password()
     )
     
     # Obtener tablas ya sincronizadas

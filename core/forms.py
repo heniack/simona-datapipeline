@@ -27,6 +27,17 @@ class ConnectorForm(forms.ModelForm):
         }
 
 
+class ConnectorEditForm(forms.ModelForm):
+    """Formulario simplificado para editar solo nombre y frecuencia"""
+    class Meta:
+        model = Connector
+        fields = ['name', 'sync_frequency']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Mi Conector de Ventas'}),
+            'sync_frequency': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+
 class SyncTaskForm(forms.ModelForm):
     class Meta:
         model = SyncTask
