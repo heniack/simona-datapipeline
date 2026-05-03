@@ -1,1 +1,1 @@
-web: python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn simona_datapipeline.wsgi --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+web: python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py create_superuser && gunicorn simona_datapipeline.wsgi --bind 0.0.0.0:$PORT --workers 1 --timeout 120
