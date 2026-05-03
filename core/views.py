@@ -206,19 +206,24 @@ def delete_connector(request, connector_id):
 @login_required
 def authorize_google_drive(request):
     """Inicia el flujo OAuth de Google Drive"""
-    flow = Flow.from_client_secrets_file(
-        get_client_secrets_file(),
-        scopes=SCOPES,
-        redirect_uri=OAUTH_REDIRECT_URI
-    )
+    try:
+        flow = Flow.from_client_secrets_file(
+            get_client_secrets_file(),
+            scopes=SCOPES,
+            redirect_uri=OAUTH_REDIRECT_URI
+        )
 
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true'
-    )
-    
-    request.session['state'] = state
-    return redirect(authorization_url)
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true'
+        )
+
+        request.session['state'] = state
+        return redirect(authorization_url)
+    except Exception as e:
+        logger.error(f"Error en authorize_google_drive: {e}")
+        messages.error(request, f'Error al conectar con Google: {e}')
+        return redirect('google_drive_connectors')
 
 @login_required
 def oauth2callback(request):
