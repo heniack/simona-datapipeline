@@ -423,12 +423,19 @@ def select_tables(request, connector_id):
                     execution.finished_at = timezone.now()
                     execution.save()
         
+        # Programar en el scheduler para sincronizaciones automáticas
+        from .scheduler import schedule_connector
+        try:
+            schedule_connector(connector)
+        except Exception as e:
+            logger.warning(f"Error al programar conector en scheduler: {e}")
+
         # Redirigir a la vista filtrada correcta
         if connector.destination_type == 'google_drive':
             return redirect('google_drive_connectors')
         else:
             return redirect('amazon_s3_connectors')
-    
+
     # Obtener tablas de la base de datos
     from .services import PostgreSQLSync
     result = PostgreSQLSync.get_tables_from_database(
