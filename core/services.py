@@ -133,15 +133,33 @@ class PostgreSQLSync:
     
     def data_to_csv(self, columns, rows):
         """Convierte datos a CSV en memoria"""
+        from datetime import datetime, date, time
+        from decimal import Decimal
+
+        def format_value(val):
+            """Formatea valores para CSV de forma legible"""
+            if val is None:
+                return ''
+            if isinstance(val, datetime):
+                return val.strftime('%Y-%m-%d %H:%M:%S')
+            if isinstance(val, date):
+                return val.strftime('%Y-%m-%d')
+            if isinstance(val, time):
+                return val.strftime('%H:%M:%S')
+            if isinstance(val, Decimal):
+                return str(val)
+            return val
+
         output = io.StringIO()
         writer = csv.writer(output)
-        
+
         # Escribir encabezados
         writer.writerow(columns)
-        
-        # Escribir datos
-        writer.writerows(rows)
-        
+
+        # Escribir datos con formato correcto
+        for row in rows:
+            writer.writerow([format_value(v) for v in row])
+
         output.seek(0)
         return output.getvalue()
 
